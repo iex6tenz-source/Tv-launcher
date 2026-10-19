@@ -158,7 +158,7 @@ jobs:
           org.gradle.jvmargs=-Xmx2g
           android.useAndroidX=true
           EOF_FILE
-          mkdir -p app
+                    mkdir -p app
           cat > app/build.gradle.kts <<'EOF_FILE'
           plugins {
               id("com.android.application")
@@ -280,4 +280,40 @@ jobs:
                           "wifi" -> Settings.ACTION_WIFI_SETTINGS
                           "bt" -> Settings.ACTION_BLUETOOTH_SETTINGS
                           "display" -> Settings.ACTION_DISPLAY_SETTINGS
- 
+                          else -> Settings.ACTION_SETTINGS
+                      }
+                      go(Intent(a))
+                  }
+
+                  @JavascriptInterface
+                  fun ram(): Int {
+                      val mi = ActivityManager.MemoryInfo()
+                      (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(mi)
+                      return (100 - mi.availMem * 100 / mi.totalMem).toInt()
+                  }
+
+                  @JavascriptInterface
+                  fun clean(): Int {
+                      val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                      packageManager.getInstalledApplications(0).forEach {
+                          if (it.packageName != packageName) am.killBackgroundProcesses(it.packageName)
+                      }
+                      return ram()
+                  }
+              }
+          }
+          EOF_FILE
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+      - run: gradle assembleDebug --no-daemon
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: TV Launcher v${{ github.run_number }}
+          files: app/build/outputs/apk/debug/app-debug.apk
+    
